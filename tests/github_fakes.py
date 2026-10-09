@@ -202,3 +202,52 @@ def issue_comment(
 
 def issue_comments(nodes, end_cursor=None):
     return {"user": {"issueComments": connection(nodes, end_cursor)}}
+
+
+def commit_item(
+    sha,
+    date="2024-01-12T10:00:00.000+00:00",
+    *,
+    repo_name="octo/app",
+    private=False,
+    message="fix: thing",
+):
+    return {
+        "sha": sha,
+        "commit": {"author": {"date": date}, "message": message},
+        "repository": {"full_name": repo_name, "private": private, "fork": False},
+    }
+
+
+def commit_detail(sha, files, *, stats=None):
+    """files: (filename, additions, deletions) tuples. stats defaults to their sums."""
+    additions = sum(a for _, a, _ in files)
+    deletions = sum(d for _, _, d in files)
+    stats = stats or {"additions": additions, "deletions": deletions}
+    return {
+        "sha": sha,
+        "stats": {**stats, "total": stats["additions"] + stats["deletions"]},
+        "files": [
+            {"filename": f, "additions": a, "deletions": d, "status": "modified"}
+            for f, a, d in files
+        ],
+    }
+
+
+def associations(attached=(), missing_repos=()):
+    """Answer a CommitAssociations query: SHAs in `attached` belong to a PR."""
+
+    def handle(body):
+        data = {}
+        pattern = (
+            r'(c\d+): repository\(owner: "([^"]+)", name: "([^"]+)"\) \{ object\(oid: "(\w+)"\)'
+        )
+        for alias, owner, name, sha in re.findall(pattern, body["query"]):
+            if f"{owner}/{name}" in missing_repos:
+                data[alias] = None
+            else:
+                count = 1 if sha in attached else 0
+                data[alias] = {"object": {"associatedPullRequests": {"totalCount": count}}}
+        return data
+
+    return handle
