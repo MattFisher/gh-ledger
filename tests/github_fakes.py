@@ -123,3 +123,50 @@ def issue_node(
         "closedAt": closed,
         "repository": repository or repo(),
     }
+
+
+def review_contribution(
+    review_id="PRR_1",
+    *,
+    state="APPROVED",
+    body="",
+    submitted="2024-01-15T10:00:00Z",
+    pr_number=7,
+    pr_author="alice",
+    comments=(),
+    comments_cursor=None,
+    repository=None,
+):
+    pr_url = f"https://github.com/octo/app/pull/{pr_number}"
+    return {
+        "pullRequestReview": {
+            "id": review_id,
+            "state": state,
+            "body": body,
+            "submittedAt": submitted,
+            "comments": connection(
+                [
+                    {"id": cid, "body": text, "createdAt": created, "url": f"{pr_url}#{cid}"}
+                    for cid, text, created in comments
+                ],
+                comments_cursor,
+            ),
+        },
+        "pullRequest": {
+            "number": pr_number,
+            "url": pr_url,
+            "author": {"login": pr_author} if pr_author else None,
+        },
+        "repository": repository or repo(),
+    }
+
+
+def contributions(nodes, *, restricted=0, end_cursor=None):
+    return {
+        "user": {
+            "contributionsCollection": {
+                "restrictedContributionsCount": restricted,
+                "pullRequestReviewContributions": connection(nodes, end_cursor),
+            }
+        }
+    }
