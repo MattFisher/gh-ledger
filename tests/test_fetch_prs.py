@@ -1,6 +1,6 @@
 from datetime import UTC, date, datetime
 
-from github_fakes import FakeGitHub, connection, noop, pr_node, search_result
+from github_fakes import FakeGitHub, connection, noop, pr_node, repo, search_result
 
 from gh_ledger.fetch.prs import fetch_prs
 from gh_ledger.filters import parse_co_authors
@@ -79,6 +79,15 @@ def test_open_pr_from_a_settled_window_is_refreshed():
     [pr] = run(fake).prs
     assert pr.state == "merged"
     assert "PrNode" in fake.calls
+
+
+def test_open_pr_that_vanished_is_skipped_and_its_repo_recorded():
+    fake = FakeGitHub()
+    fake.graphql["PrSearch"] = created_only(pr_node(state="OPEN", repository=repo("octo/gone")))
+    fake.graphql["PrNode"] = lambda _body: {"node": None}
+    result = run(fake)
+    assert result.prs == []
+    assert result.skipped_repos == ["octo/gone"]
 
 
 def test_open_pr_from_a_recent_window_is_not_refreshed():

@@ -94,12 +94,17 @@ def fetch_prs(
                 found[hit.node["id"]] = hit
             tick(1)
     result = FetchResult()
+    skipped: set[str] = set()
     for hit in found.values():
-        node = hit.node
-        if hit.settled and node["state"] == "OPEN":
+        node: dict[str, Any] | None = hit.node
+        if hit.settled and hit.node["state"] == "OPEN":
             # Cached search pages freeze an open PR; its details are re-read every run.
-            node = client.graphql(NODE_QUERY, {"id": node["id"]}, cacheable=False)["node"]
+            node = client.graphql(NODE_QUERY, {"id": hit.node["id"]}, cacheable=False)["node"]
+            if node is None:  # repo deleted, made private or otherwise inaccessible
+                skipped.add(hit.node["repository"]["nameWithOwner"])
+                continue
         _add_pr(client, node, result)
+    result.skipped_repos = sorted(skipped)
     return result
 
 
