@@ -61,3 +61,8 @@ def test_example_claude_file_is_valid():
     assert all(e.url.startswith("https://www.anthropic.com/") for e in events)
     assert all(e.group == "Claude" for e in events)
     assert [e.date for e in events] == sorted(e.date for e in events)
+
+
+def test_unreadable_events_file_is_an_events_error(tmp_path):
+    with pytest.raises(EventsError, match=str(tmp_path)):
+        load_events([tmp_path])

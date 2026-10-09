@@ -58,6 +58,8 @@ def load_config(path: Path | None) -> Config:
         raw: dict[str, Any] = tomllib.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         raise ConfigError(f"Config file not found: {path}") from None
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ConfigError(f"{path}: {exc}") from None
     except tomllib.TOMLDecodeError as exc:
         raise ConfigError(f"{path}: {exc}") from None
     try:

@@ -105,3 +105,8 @@ def test_example_config_loads():
     config = load_config(Path(__file__).parent.parent / "examples" / "ledger.toml")
     assert config.report.compare_at == date(2025, 2, 24)
     assert config.filters.exclude[-1] == "fixtures/**"
+
+
+def test_unreadable_config_is_a_config_error(tmp_path):
+    with pytest.raises(ConfigError, match=str(tmp_path)):
+        load_config(tmp_path)

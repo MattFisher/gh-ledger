@@ -35,6 +35,8 @@ def _load_file(path: Path) -> list[Event]:
         raw: object = yaml.safe_load(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         raise EventsError(f"Events file not found: {path}") from None
+    except (OSError, UnicodeDecodeError) as exc:
+        raise EventsError(f"{path}: {exc}") from None
     except yaml.YAMLError as exc:
         raise EventsError(f"{path}: invalid YAML: {exc}") from None
     if raw is None:
