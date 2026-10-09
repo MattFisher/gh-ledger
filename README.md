@@ -73,21 +73,21 @@ It writes `DIR/metrics.csv` and prints a table.
 
 `summary` computes these per period (by UTC date):
 
-| Metric                                               | Meaning                                                                                                                                                      |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| PRs opened / merged                                  | PRs by creation date / by merge date                                                                                                                         |
-| Issues opened                                        | Issues by creation date                                                                                                                                      |
-| Direct commits                                       | Commits not already part of a PR you opened                                                                                                                  |
-| Reviews given                                        | Reviews you submitted on other people's PRs                                                                                                                  |
-| Approvals, changes requested, review comments only   | Reviews given, split by outcome                                                                                                                              |
-| Comments                                             | Issue and PR conversation comments you wrote                                                                                                                 |
-| Comments on others' items                            | Comments on items someone else opened                                                                                                                        |
-| Lines added / deleted (filtered)                     | After the path exclusions and per-file cap below                                                                                                             |
-| Lines added / deleted (raw)                          | GitHub's totals, before any filtering                                                                                                                        |
-| Lines in truncated file lists (`lines_unfilterable`) | Lines in PRs or commits whose file list GitHub truncated, so the filters cannot be applied to them. They are in the raw totals and not in the filtered ones. |
-| AI-assisted PRs, commits, comments                   | Share of that period's items matching an AI marker; empty if none                                                                                            |
-| Active repos                                         | Distinct repos with any activity in the period                                                                                                               |
-| Lines changed per repo                               | Filtered additions plus deletions by repo; feeds the repos chart                                                                                             |
+| Metric                                               | Meaning                                                                                                                                                                              |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PRs opened / merged                                  | PRs by creation date / by merge date                                                                                                                                                 |
+| Issues opened                                        | Issues by creation date                                                                                                                                                              |
+| Direct commits                                       | Commits not already part of a PR you opened. Merge commits are never counted, and a commit that appears in several copies of a repository's history is counted once, in the original |
+| Reviews given                                        | Reviews you submitted on other people's PRs                                                                                                                                          |
+| Approvals, changes requested, review comments only   | Reviews given, split by outcome                                                                                                                                                      |
+| Comments                                             | Issue and PR conversation comments you wrote                                                                                                                                         |
+| Comments on others' items                            | Comments on items someone else opened                                                                                                                                                |
+| Lines added / deleted (filtered)                     | After the path exclusions and per-file cap below                                                                                                                                     |
+| Lines added / deleted (raw)                          | GitHub's totals, before any filtering                                                                                                                                                |
+| Lines in truncated file lists (`lines_unfilterable`) | Lines in PRs or commits whose file list GitHub truncated, so the filters cannot be applied to them. They are in the raw totals and not in the filtered ones.                         |
+| AI-assisted PRs, commits, comments                   | Share of that period's items matching an AI marker; empty if none                                                                                                                    |
+| Active repos                                         | Distinct repos with any activity in the period                                                                                                                                       |
+| Lines changed per repo                               | Filtered additions plus deletions by repo; feeds the repos chart                                                                                                                     |
 
 Reviews and review metrics count only other people's PRs. Lines come from merged PRs and from direct commits, never both for the same change. Unmerged PRs contribute no lines unless `count_unmerged_pr_lines = true`.
 
