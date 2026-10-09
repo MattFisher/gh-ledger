@@ -6,7 +6,7 @@ import math
 import time
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, NoReturn
@@ -21,10 +21,22 @@ from gh_ledger.auth import AuthError, get_token
 from gh_ledger.cache import ResponseCache
 from gh_ledger.client import GitHubClient, GitHubError, Waiter
 from gh_ledger.config import ConfigError, load_config
+from gh_ledger.events import EventsError, load_events
 from gh_ledger.fetch import FetchError, FetchOptions, Stage, run_fetch
 from gh_ledger.fetch.common import Tick
 from gh_ledger.metrics import METRIC_LABELS, SUMMARY_COLUMNS, compute_metrics, summary_rows
-from gh_ledger.store import StoreError, load_tables, read_manifest, write_metrics
+from gh_ledger.report import build_charts, headline
+from gh_ledger.report.html import build_html
+from gh_ledger.report.images import export_images
+from gh_ledger.report.redact import redact_repos
+from gh_ledger.store import (
+    StoreError,
+    load_table,
+    load_tables,
+    read_manifest,
+    read_metrics,
+    write_metrics,
+)
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -175,6 +187,42 @@ def summary(
     write_metrics(metrics, data / "metrics.csv")
     _print_summary(summary_rows(metrics))
     err_console.print(f"Wrote {data / 'metrics.csv'}")
+
+
+@app.command()
+def report(
+    data: Annotated[Path, typer.Option(help="Data directory written by fetch and summary.")],
+    out: Annotated[Path, typer.Option(help="Directory for report.html and charts/.")],
+    config: Annotated[Path | None, typer.Option(help="ledger.toml with [report] settings.")] = None,
+    events: Annotated[list[Path] | None, typer.Option(help="Event YAML file. Repeatable.")] = None,
+    redact_private: Annotated[
+        bool, typer.Option(help="Show private repos as 'private repo N' everywhere.")
+    ] = False,
+) -> None:
+    """Render DATA/metrics.csv as OUT/report.html plus PNG/SVG charts."""
+    try:
+        cfg = load_config(config)
+        manifest = read_manifest(data)
+        if manifest is None:
+            raise StoreError(f"{data} has no manifest.json; run `gh-ledger fetch` first")
+        metrics = read_metrics(data / "metrics.csv")
+        if redact_private:
+            metrics = redact_repos(metrics, load_table(data, "repos"))
+        overlay = load_events(events or [])
+    except (ConfigError, EventsError, StoreError) as exc:
+        fail(exc)
+    start, end = date.fromisoformat(manifest.since), date.fromisoformat(manifest.until)
+    figures = build_charts(metrics, cfg.report, overlay, start, end)
+    out.mkdir(parents=True, exist_ok=True)
+    subtitle = f"{manifest.user} · {manifest.since} to {manifest.until}"
+    page = build_html(cfg.report.title, subtitle, headline(metrics), figures)
+    (out / "report.html").write_text(page, encoding="utf-8")
+    err_console.print(f"Wrote {out / 'report.html'}")
+    skipped = export_images(figures, out / "charts", cfg.report.image_size)
+    if skipped:
+        err_console.print(f"[yellow]Images skipped:[/] {escape(skipped)}")
+    else:
+        err_console.print(f"Wrote {len(figures) * 2} images to {out / 'charts'}")
 
 
 def _print_summary(rows: list[list[str]]) -> None:
