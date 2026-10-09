@@ -111,7 +111,7 @@ Add patterns with `extra_exclude`, or replace the defaults with `exclude`. A sin
 
 ## AI-assistance markers
 
-A PR, commit, comment, review or issue counts as AI-assisted if any regex in `[ai].patterns` matches its text or one of its `Co-authored-by` trailers. The defaults are:
+A PR, direct commit or comment counts as AI-assisted (reviews and issues are not scored) if any regex in `[ai].patterns` matches its text or one of its `Co-authored-by` trailers. The defaults are:
 
 ```text
 (?i)co-authored-by:.*\b(claude|copilot|cursor|codex|gemini|devin)\b
