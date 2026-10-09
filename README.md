@@ -5,9 +5,11 @@ gh-ledger measures one GitHub user's activity over many years: pull requests, is
 ## Install
 
 ```bash
-uv tool install gh-ledger          # or: pipx install gh-ledger
-uv tool install 'gh-ledger[images]' # adds PNG/SVG export
+uv tool install "git+https://github.com/MattFisher/gh-ledger"
+uv tool install "gh-ledger[images] @ git+https://github.com/MattFisher/gh-ledger"  # adds PNG/SVG export
 ```
+
+Installing from PyPI (`uv tool install gh-ledger`) will work after the first release.
 
 PNG/SVG export uses kaleido, which needs Chrome. If you don't have it, run `plotly_get_chrome` once. Without the `images` extra (or without Chrome) `report` still writes `report.html` and says that images were skipped.
 
@@ -73,25 +75,27 @@ It writes `DIR/metrics.csv` and prints a table.
 
 `summary` computes these per period (by UTC date):
 
-| Metric                                               | Meaning                                                                                                                                                                              |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| PRs opened / merged                                  | PRs by creation date / by merge date                                                                                                                                                 |
-| Issues opened                                        | Issues by creation date                                                                                                                                                              |
-| Direct commits                                       | Commits not already part of a PR you opened. Merge commits are never counted, and a commit that appears in several copies of a repository's history is counted once, in the original |
-| Reviews given                                        | Reviews you submitted on other people's PRs                                                                                                                                          |
-| Approvals, changes requested, review comments only   | Reviews given, split by outcome                                                                                                                                                      |
-| Comments                                             | Issue and PR conversation comments you wrote                                                                                                                                         |
-| Comments on others' items                            | Comments on items someone else opened                                                                                                                                                |
-| Lines added / deleted (filtered)                     | After the path exclusions and per-file cap below                                                                                                                                     |
-| Lines added / deleted (raw)                          | GitHub's totals, before any filtering                                                                                                                                                |
-| Lines in truncated file lists (`lines_unfilterable`) | Lines in PRs or commits whose file list GitHub truncated, so the filters cannot be applied to them. They are in the raw totals and not in the filtered ones.                         |
-| AI-assisted PRs, commits, comments                   | Share of that period's items matching an AI marker; empty if none                                                                                                                    |
-| Active repos                                         | Distinct repos with any activity in the period                                                                                                                                       |
-| Lines changed per repo                               | Filtered additions plus deletions by repo; feeds the repos chart                                                                                                                     |
+| Metric                                               | Meaning                                                                                                                                                                                  |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PRs opened / merged                                  | PRs by creation date / by merge date                                                                                                                                                     |
+| Issues opened                                        | Issues by creation date                                                                                                                                                                  |
+| Direct commits                                       | Commits on a default branch that are not merge commits and are not attached to any pull request. A commit found in several copies of a repository's history counts once, in the original |
+| Reviews given                                        | Reviews you submitted on other people's PRs                                                                                                                                              |
+| Approvals, changes requested, review comments only   | Reviews given, split by outcome                                                                                                                                                          |
+| Comments                                             | Issue and PR conversation comments and inline review comments you wrote                                                                                                                  |
+| Comments on others' items                            | Comments on items someone else opened                                                                                                                                                    |
+| Lines added / deleted (filtered)                     | After the path exclusions and per-file cap below                                                                                                                                         |
+| Lines added / deleted (raw)                          | GitHub's totals, before any filtering                                                                                                                                                    |
+| Lines in truncated file lists (`lines_unfilterable`) | Lines in PRs or commits whose file list GitHub truncated, so the filters cannot be applied to them. They are in the raw totals and not in the filtered ones.                             |
+| AI-assisted PRs, commits, comments                   | Share of that period's items matching an AI marker; empty if none                                                                                                                        |
+| Active repos                                         | Distinct repos with any activity in the period                                                                                                                                           |
+| Lines changed per repo                               | Filtered additions plus deletions by repo; feeds the repos chart                                                                                                                         |
 
 Reviews and review metrics count only other people's PRs. Lines come from merged PRs and from direct commits, never both for the same change. Unmerged PRs contribute no lines unless `count_unmerged_pr_lines = true`.
 
 Commit author dates are normalised to UTC before they are bucketed into periods.
+
+Tables are upserted: rows are never removed. After upgrading gh-ledger, or when a repo's visibility changes, delete the CSVs in DIR (keep `cache/`) and re-run `fetch` to rebuild them.
 
 ## Filters
 
@@ -154,7 +158,8 @@ charts.lines(metrics).show()  # a Plotly figure: adjust it or save it as you lik
 
 - Commit search only finds commits whose email is linked to the account. Use `--author-email` for others.
 - Review coverage is slightly below GitHub's `reviewed-by` search: in a live probe the review data covered 256 of 277 and 430 of 441 PRs over a year, so a few reviews may be missing.
-- Private activity the token cannot see as items (for example organisation repos where the token is not authorised, or SSO/OAuth app restrictions) appears only as a restricted contribution count, which `fetch` prints. Authorising the token for those organisations may recover it.
+- Private activity the token cannot see as items (for example organisation repos where the token is not authorised, or SSO/OAuth app restrictions) appears only as a restricted contribution count, which `fetch` prints. Authorising the token for those organisations may recover it: re-run `fetch` with `--refresh` afterwards, because settled spans are cached.
+- Lines come from your merged PRs plus direct commits, so work pushed to other people's PRs, or to PRs that are never merged, isn't counted in lines or direct commits.
 - The manifest's `dropped_pr_commits` and `restricted_contributions` describe the most recent fetch run's date range, not the cumulative range.
 - The lines chart's axis fits the filtered bars, so a very large raw ("Before filters") value can run off the chart. Hover still shows it.
 - Conversation comments are re-read from GitHub on every run.
