@@ -1,0 +1,120 @@
+[build-system]
+# uv's own backend. It builds src/gh_ledger/ with no further config.
+# Keep the upper bound at the next uv minor, as `uv init` writes it, and raise
+# both bounds when moving to a new uv minor.
+requires = ["uv_build>=0.12.22,<0.13.0"]
+build-backend = "uv_build"
+
+[project]
+name = "gh-ledger"
+version = "0.1.0"
+description = "Measure one GitHub user's activity over time and chart it"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"] # uv_build ships only the license files named here
+authors = [{ name = "Matt Fisher", email = "m@ttfisher.com" }]
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.1",
+    "pandas>=3.0.6",
+    "plotly>=7.1.0",
+    "pyyaml>=6.0.3",
+    "rich>=15.0.0",
+    "typer>=0.27.3",
+]
+[project.urls]
+Homepage = "https://github.com/MattFisher/gh-ledger"
+Repository = "https://github.com/MattFisher/gh-ledger"
+Issues = "https://github.com/MattFisher/gh-ledger/issues"
+
+[project.optional-dependencies]
+images = [
+    "kaleido>=1.5.0",
+]
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=7.0.0",
+    "basedpyright>=1.39",
+    "pre-commit>=4.0.0",
+    "scriv>=1.8",
+    "pandas-stubs>=3.0.5.260914",
+    "types-pyyaml>=6.0.12.20260906",
+    "kaleido>=1.5.0",
+]
+
+
+[tool.scriv]
+# One fragment per pull request in changelog.d/, collected into CHANGELOG.md
+# at release time, so concurrent PRs never edit the same lines of the changelog.
+format = "md"
+fragment_directory = "changelog.d"
+categories = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"]
+skip_fragments = "[A-Z]*" # TEMPLATE.md
+new_fragment_template = "file: TEMPLATE.md"
+entry_title_template = "[{{ version }}] - {{ date.strftime('%Y-%m-%d') }}"
+md_header_level = "2"
+md_html_anchors = false
+# Without this, two fragments in one category leave a blank line between them,
+# which makes the list loose and fails mdformat on the release commit.
+compact_fragments = true
+# The version's single source is [project] version above, which
+# `uv version --bump` (and the Prepare release workflow) rewrites.
+version = "literal: pyproject.toml: project.version"
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "SIM",   # flake8-simplify
+    "D",     # pydocstyle
+    "C4",    # flake8-comprehensions
+    "PT",    # flake8-pytest-style
+    "PIE",   # flake8-pie
+    "DTZ",   # flake8-datetimez (timezone-aware datetimes)
+    "ISC",   # implicit-str-concat (catches missing commas)
+    "ASYNC", # flake8-async
+    "N",     # pep8-naming
+    "FURB",  # refurb (modernization)
+    "RUF",   # ruff-specific rules
+    "PLE",   # pylint errors
+    "PLW",   # pylint warnings
+]
+ignore = [
+    "E501",   # line-too-long — the formatter owns line length
+    "D10",    # missing docstrings — don't force them
+    "D415",   # first-line punctuation — the module docstring is the project
+    # description, whose punctuation varies
+    "ISC001", # single-line implicit concat — conflicts with the formatter
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"] # tests don't need docstring linting
+
+[tool.basedpyright]
+pythonVersion = "3.12"
+# "strict" (pyright's), not basedpyright's stricter default "recommended" —
+# the based-only rules (reportAny etc.) are opt-in per project.
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false # third-party libs are often untyped
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-rA --durations=10 --color=yes --cov=src --cov-report=term-missing -m 'not live'"
+markers = ["live: calls the real GitHub API; needs a token (run with -m live)"]
+
+[tool.typos.default.extend-words]
+# The plan deliberately contains the misspelt key "exclud" as a test case.
+exclud = "exclud"

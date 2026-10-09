@@ -1,0 +1,65 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+  # Started by release-on-merge.yml on the tag it creates. A tag created with
+  # the default Actions token triggers no workflows, and PyPI trusted
+  # publishing can't run from a reusable workflow, so this one is dispatched
+  # and still runs as publish.yml, the workflow the publisher names.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # required for PyPI trusted publishing (OIDC, no API token)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.12"
+          enable-cache: false # no caching in the privileged publish job (cache-poisoning surface)
+
+      - name: Refuse anything but a version tag
+        run: |
+          case "$GITHUB_REF" in
+            refs/tags/v*) ;;
+            *)
+              echo "::error::publish runs only on a v* tag, not ${GITHUB_REF}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Build sdist + wheel
+        run: uv build
+
+      - name: Check the tag matches the package version
+        run: |
+          shopt -s nullglob
+          set -- dist/*.whl
+          if [ "$#" -ne 1 ]; then
+            echo "::error::expected one wheel in dist/, found $#" >&2
+            exit 1
+          fi
+          pkg_version=$(basename "$1" | cut -d- -f2)
+          if [ "$pkg_version" != "${GITHUB_REF_NAME#v}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match package version ${pkg_version}" >&2
+            exit 1
+          fi
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
