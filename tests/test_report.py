@@ -110,6 +110,7 @@ def test_report_bad_events_file_exits_cleanly(tmp_path):
     result, _ = run_report(tmp_path, "--events", str(events))
     assert result.exit_code == 1
     assert "missing date" in result.output
+    assert "events.yaml" in result.output
     assert "Traceback" not in result.output
 
 

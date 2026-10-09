@@ -1,7 +1,9 @@
 import math
 from datetime import date
+from itertools import pairwise
 
 import plotly.graph_objects as go
+import pytest
 from report_data import sample_metrics
 
 from gh_ledger.config import ReportConfig
@@ -106,3 +108,39 @@ def test_compare_is_omitted_without_compare_at():
 
 def test_headline_totals():
     assert dict(headline(sample_metrics()))["PRs merged"] == "10"
+
+
+def test_lines_axis_fits_filtered_bars_not_the_raw_line():
+    metrics = sample_metrics()
+    is_raw_deleted = metrics["metric"] == "lines_deleted_raw"
+    metrics.loc[is_raw_deleted, "value"] = 650_000.0
+    fig = lines(metrics)
+    low, high = fig.layout.yaxis.range
+    deleted = max(-trace_value for trace_value in fig.data[1].y)
+    assert low == pytest.approx(-deleted * 1.15)
+    assert low > -650_000
+    assert high == pytest.approx(max(fig.data[0].y) * 1.15)
+
+
+def test_lines_axis_without_activity_is_left_automatic():
+    metrics = sample_metrics()
+    metrics.loc[metrics["metric"].isin(["lines_added", "lines_deleted"]), "value"] = 0.0
+    assert lines(metrics).layout.yaxis.range is None
+
+
+def test_close_event_labels_are_spread_apart():
+    events = [Event(date=date(2024, 4, d), label=f"E{d}") for d in (20, 21, 22)]
+    fig = add_events(lines(sample_metrics()), events, START, END, labels=True)
+    span = (END - START).days
+    placed = sorted(
+        (event_day - START).days / span * 1100 + a.xshift
+        for a, event_day in zip(fig.layout.annotations, (e.date for e in events), strict=True)
+    )
+    assert all(later - earlier >= 13 - 1e-6 for earlier, later in pairwise(placed))
+    assert any(a.xshift != 0 for a in fig.layout.annotations)
+
+
+def test_repos_legend_is_vertical_beside_the_plot():
+    legend = repos(sample_metrics()).layout.legend
+    assert legend.orientation == "v"
+    assert legend.x > 1

@@ -96,7 +96,14 @@ def activity(metrics: pd.DataFrame) -> go.Figure:
             col=1,
         )
     fig.update_layout(height=760)
-    return _layout(fig, "Activity")
+    _layout(fig, "Activity")
+    # Bottom-right, away from the event labels above and the modebar at the top right.
+    fig.update_layout(
+        legend={"yanchor": "top", "y": -0.05, "xanchor": "right", "x": 1},
+        margin={"b": 70},
+        title={"yref": "container", "y": 1, "yanchor": "top", "pad": {"t": 10}},
+    )
+    return fig
 
 
 def lines(metrics: pd.DataFrame) -> go.Figure:
@@ -146,6 +153,13 @@ def lines(metrics: pd.DataFrame) -> go.Figure:
     )
     fig.update_layout(barmode="relative")
     fig.update_yaxes(title_text="Lines")
+    top = float(table["lines_added"].fillna(0).max())
+    bottom = float(table["lines_deleted"].fillna(0).max())
+    if top > 0 or bottom > 0:
+        # Fit the axis to the filtered bars; the raw line may leave the range (hover shows it).
+        high = top * 1.15 if top > 0 else bottom * 0.15
+        low = -bottom * 1.15 if bottom > 0 else -top * 0.15
+        fig.update_yaxes(range=[low, high])
     return _layout(fig, "Lines changed (generated and data files filtered out)")
 
 
@@ -224,7 +238,13 @@ def repos(metrics: pd.DataFrame, top_n: int = 8) -> go.Figure:
             )
     fig.update_layout(barmode="stack")
     fig.update_yaxes(title_text="Lines changed (filtered)")
-    return _layout(fig, "Lines changed by repo")
+    _layout(fig, "Lines changed by repo")
+    # Long owner/name labels: a vertical legend beside the plot never wraps into the title.
+    fig.update_layout(
+        legend={"orientation": "v", "yanchor": "top", "y": 1, "xanchor": "left", "x": 1.02},
+        margin={"r": 270, "t": 60},
+    )
+    return fig
 
 
 def compare(metrics: pd.DataFrame, compare_at: date) -> go.Figure:
@@ -275,6 +295,23 @@ def _change(before: float, after: float) -> str:
     return f"{(after - before) / before:+.0%}"
 
 
+LABEL_GAP_PX = 13  # rotated 10px text is about this wide
+PLOT_WIDTH_PX = 1100  # roughly the plot width at the 1200px export size
+
+
+def _label_shifts(shown: Sequence[Event], start: date, end: date) -> dict[int, int]:
+    """Pixel shift per event so neighbouring rotated labels don't overlap (fan out leftwards)."""
+    span = max((end - start).days, 1)
+    shifts: dict[int, int] = {}
+    placed: float | None = None  # pixel position of the label to the right
+    for event in sorted(shown, key=lambda e: e.date, reverse=True):
+        pos = (event.date - start).days / span * PLOT_WIDTH_PX
+        target = pos if placed is None else min(pos, placed - LABEL_GAP_PX)
+        shifts[id(event)] = round(target - pos)
+        placed = target
+    return shifts
+
+
 def add_events(
     fig: go.Figure, events: Sequence[Event], start: date, end: date, *, labels: bool
 ) -> go.Figure:
@@ -287,6 +324,9 @@ def add_events(
         for i, group in enumerate(named)
     }
     colors[""] = TEXT_MUTED
+    label_px = {}
+    if labels and shown:
+        label_px = _label_shifts(shown, start, end)
     for event in shown:
         x = event.date.isoformat()
         fig.add_vline(x=x, line={"dash": "dash", "width": 1, "color": colors[event.group]})
@@ -300,16 +340,14 @@ def add_events(
                 textangle=-90,
                 xanchor="right",
                 yanchor="bottom",
+                xshift=label_px[id(event)],
                 showarrow=False,
                 font={"size": 10, "color": TEXT_MUTED},
             )
     if labels and shown:
-        # Rotated labels stand above the first panel, clear of its title; make room for them
-        # and keep the legend in the top corner instead of on top of them.
-        fig.update_layout(
-            margin={"t": 240},
-            legend={"yref": "container", "y": 1, "yanchor": "top"},
-        )
+        # Rotated labels stand above the first panel, clear of its title; size the margin to them.
+        longest = max(len(event.label) for event in shown)
+        fig.update_layout(margin={"t": 50 + int(longest * 5.6)})
     for group in groups:
         members = [event for event in shown if event.group == group]
         fig.add_trace(
