@@ -47,11 +47,19 @@ query ReviewComments($id: ID!, $after: String) {
 
 
 def fetch_reviews(
-    client: GitHubClient, user: str, since: date, until: date, *, now: datetime, tick: Tick
+    client: GitHubClient,
+    user: str,
+    since: date,
+    until: date,
+    *,
+    public_only: bool,
+    now: datetime,
+    tick: Tick,
 ) -> FetchResult:
     result = FetchResult()
     for span in year_spans(since, until):
-        cacheable = span.is_settled(now)
+        # Responses include private repos; never cache them raw on a public fetch.
+        cacheable = span.is_settled(now) and not public_only
         cursor: str | None = None
         while True:
             variables = {

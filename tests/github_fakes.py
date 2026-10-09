@@ -32,9 +32,12 @@ class FakeGitHub:
         result = self.rest[request.url.path](request)
         return result if isinstance(result, httpx.Response) else httpx.Response(200, json=result)
 
-    def client(self):
+    def client(self, cache=None):
         return GitHubClient(
-            "test-token", transport=httpx.MockTransport(self.handle), sleep=lambda _s: None
+            "test-token",
+            transport=httpx.MockTransport(self.handle),
+            sleep=lambda _s: None,
+            cache=cache,
         )
 
     def variables(self, name):

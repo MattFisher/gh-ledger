@@ -160,9 +160,11 @@ class Manifest:
     fetched_at: str
     tool_version: str
     author_emails: list[str] = field(default_factory=list[str])
-    dropped_pr_commits: int = 0
+    dropped_pr_commits: int = 0  # counts from the most recent fetch run's range, not cumulative
     skipped_repos: list[str] = field(default_factory=list[str])
-    restricted_contributions: int = 0
+    restricted_contributions: int = (
+        0  # counts from the most recent fetch run's range, not cumulative
+    )
 
 
 def columns(row_type: type[DataclassInstance]) -> list[str]:

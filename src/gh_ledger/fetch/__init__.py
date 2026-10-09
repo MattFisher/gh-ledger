@@ -56,7 +56,9 @@ def run_fetch(
             fetch_issues(client, user, since, until, public_only=public_only, now=now, tick=tick)
         )
     with stage("Reviews") as tick:
-        result.extend(fetch_reviews(client, user, since, until, now=now, tick=tick))
+        result.extend(
+            fetch_reviews(client, user, since, until, public_only=public_only, now=now, tick=tick)
+        )
     with stage("Comments") as tick:
         result.extend(fetch_comments(client, user, since, until, tick=tick))
     with stage("Direct commits") as tick:

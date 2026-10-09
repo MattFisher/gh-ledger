@@ -12,6 +12,7 @@ from github_fakes import (
     search_result,
 )
 
+from gh_ledger.cache import ResponseCache
 from gh_ledger.fetch import FetchError, FetchOptions, run_fetch
 from gh_ledger.store import load_table, read_manifest, write_manifest
 
@@ -80,3 +81,29 @@ def test_incremental_fetch_widens_manifest_range(tmp_path):
     run_fetch(fake.client(), earlier, tmp_path, now=NOW, stage=stage)
     saved = read_manifest(tmp_path)
     assert (saved.since, saved.until) == ("2023-11-01", "2024-01-31")
+
+
+def test_public_fetch_keeps_private_review_text_out_of_the_cache(tmp_path):
+    fake = empty_github()
+    private = review_contribution(
+        "PRR_P", body="SECRET-REVIEW-BODY", repository=repo("acme/secret", private=True)
+    )
+    fake.graphql["ReviewContributions"] = lambda _b: contributions([private])
+    cache_dir = tmp_path / "data" / "cache"
+    client = fake.client(cache=ResponseCache(cache_dir))
+    run_fetch(client, options(visibility="public"), tmp_path / "data", now=NOW, stage=stage)
+    for path in cache_dir.rglob("*"):
+        if path.is_file():
+            text = path.read_text(errors="ignore")
+            assert "SECRET-REVIEW-BODY" not in text
+            assert "acme/secret" not in text
+
+
+def test_manifest_counts_describe_the_latest_run(tmp_path):
+    fake = empty_github()
+    fake.graphql["ReviewContributions"] = lambda _b: contributions([], restricted=3)
+    run_fetch(fake.client(), options(), tmp_path, now=NOW, stage=stage)
+    assert read_manifest(tmp_path).restricted_contributions == 3
+    fake.graphql["ReviewContributions"] = lambda _b: contributions([], restricted=1)
+    run_fetch(fake.client(), options(), tmp_path, now=NOW, stage=stage)
+    assert read_manifest(tmp_path).restricted_contributions == 1

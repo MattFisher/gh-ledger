@@ -8,7 +8,9 @@ NOW = datetime(2024, 6, 1, tzinfo=UTC)
 
 
 def run(fake, since=date(2024, 1, 1), until=date(2024, 1, 31)):
-    return fetch_reviews(fake.client(), "octocat", since, until, now=NOW, tick=noop)
+    return fetch_reviews(
+        fake.client(), "octocat", since, until, now=NOW, public_only=False, tick=noop
+    )
 
 
 def test_review_and_inline_comment_rows():
