@@ -1,6 +1,9 @@
 """Builders for model rows with sensible defaults, for store and metrics tests."""
 
+import pandas as pd
+
 from gh_ledger.model import (
+    TABLES,
     CommentRow,
     CommitRow,
     FileChangeRow,
@@ -9,6 +12,8 @@ from gh_ledger.model import (
     PrRow,
     RepoRow,
     ReviewRow,
+    columns,
+    to_csv_row,
 )
 
 
@@ -159,3 +164,12 @@ def manifest(user="octocat", since="2024-01-01", until="2024-03-31", visibility=
         fetched_at="2024-04-01T00:00:00Z",
         tool_version="0.1.0",
     )
+
+
+def tables(**rows):
+    """DataFrames shaped like store.load_tables(), built from model rows."""
+    frames = {}
+    for spec in TABLES:
+        records = [to_csv_row(row) for row in rows.get(spec.name, [])]
+        frames[spec.name] = pd.DataFrame(records, columns=columns(spec.row_type), dtype=str)
+    return frames

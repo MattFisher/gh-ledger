@@ -87,3 +87,24 @@ def write_manifest(data_dir: Path, manifest: Manifest) -> None:
     data_dir.mkdir(parents=True, exist_ok=True)
     text = json.dumps(dataclasses.asdict(manifest), indent=2) + "\n"
     (data_dir / MANIFEST).write_text(text, encoding="utf-8")
+
+
+def write_metrics(metrics: pd.DataFrame, path: Path) -> None:
+    """Write long-format metrics; whole numbers without '.0', empty cells for NaN."""
+    out = metrics[["period", "metric", "value", "repo"]].copy()
+    out["value"] = [_format_value(v) for v in out["value"]]
+    out.to_csv(path, index=False)
+
+
+def _format_value(value: float) -> str:
+    if pd.isna(value):
+        return ""
+    return str(int(value)) if float(value).is_integer() else f"{value:.6g}"
+
+
+def read_metrics(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        raise StoreError(f"{path} not found; run `gh-ledger summary` first")
+    frame = pd.read_csv(path, dtype=str, keep_default_na=False)
+    frame["value"] = pd.to_numeric(frame["value"].replace("", float("nan")))
+    return frame

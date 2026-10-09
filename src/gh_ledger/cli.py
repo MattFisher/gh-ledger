@@ -15,12 +15,16 @@ import typer
 from rich.console import Console
 from rich.markup import escape
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.table import Table
 
 from gh_ledger.auth import AuthError, get_token
 from gh_ledger.cache import ResponseCache
 from gh_ledger.client import GitHubClient, GitHubError, Waiter
+from gh_ledger.config import ConfigError, load_config
 from gh_ledger.fetch import FetchError, FetchOptions, Stage, run_fetch
 from gh_ledger.fetch.common import Tick
+from gh_ledger.metrics import METRIC_LABELS, SUMMARY_COLUMNS, compute_metrics, summary_rows
+from gh_ledger.store import StoreError, load_tables, read_manifest, write_metrics
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -139,3 +143,45 @@ def fetch(
         err_console.print(
             f"[yellow]{manifest.restricted_contributions} private contributions are hidden from this token.[/]"
         )
+
+
+class Period(StrEnum):
+    WEEK = "week"
+    MONTH = "month"
+    QUARTER = "quarter"
+
+
+@app.command()
+def summary(
+    data: Annotated[Path, typer.Option(help="Data directory written by fetch.")],
+    period: Annotated[
+        Period | None, typer.Option(help="Aggregation period. Default: from config.")
+    ] = None,
+    config: Annotated[
+        Path | None, typer.Option(help="ledger.toml with filters and defaults.")
+    ] = None,
+) -> None:
+    """Aggregate fetched tables into DATA/metrics.csv and print a table."""
+    try:
+        cfg = load_config(config)
+        manifest = read_manifest(data)
+        if manifest is None:
+            raise StoreError(f"{data} has no manifest.json; run `gh-ledger fetch` first")
+        tables = load_tables(data)
+    except (ConfigError, StoreError) as exc:
+        fail(exc)
+    chosen = period.value if period else cfg.report.period
+    metrics = compute_metrics(tables, manifest, cfg, chosen)
+    write_metrics(metrics, data / "metrics.csv")
+    _print_summary(summary_rows(metrics))
+    err_console.print(f"Wrote {data / 'metrics.csv'}")
+
+
+def _print_summary(rows: list[list[str]]) -> None:
+    table = Table(title="gh-ledger summary")
+    table.add_column("Period", no_wrap=True)
+    for name in SUMMARY_COLUMNS:
+        table.add_column(METRIC_LABELS[name], justify="right")
+    for row in rows:
+        table.add_row(*row)
+    console.print(table)
