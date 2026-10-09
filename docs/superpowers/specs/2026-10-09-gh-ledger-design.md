@@ -43,19 +43,19 @@ gh-ledger report  --data DIR --out DIR [--config ledger.toml] [--events FILE]...
 
 ### Modules (`src/gh_ledger/`)
 
-| Module | Responsibility |
-|---|---|
-| `auth.py` | Token from `GITHUB_TOKEN`, falling back to `gh auth token` |
-| `client.py` | httpx client for REST and GraphQL: rate-limit waits, retries, on-disk cache. Accepts an injected transport for tests. |
-| `fetch/` | One module each for PRs, issues, reviews, comments and commits. Each yields raw records and owns its search-window splitting. |
-| `model.py` | Row dataclasses. This is the schema contract. |
-| `store.py` | CSV and manifest read/write, upsert by ID |
-| `filters.py` | Path exclusion, per-file cap, AI-marker detection, trailer parsing |
-| `metrics.py` | Tables to per-period metrics (pandas) |
-| `events.py` | Event YAML loading and validation |
-| `report/` | One function per chart (metrics DataFrame in, Plotly figure out), the HTML assembler, image export |
-| `config.py` | `ledger.toml` loading with built-in defaults |
-| `cli.py` | Typer commands |
+| Module       | Responsibility                                                                                                                |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `auth.py`    | Token from `GITHUB_TOKEN`, falling back to `gh auth token`                                                                    |
+| `client.py`  | httpx client for REST and GraphQL: rate-limit waits, retries, on-disk cache. Accepts an injected transport for tests.         |
+| `fetch/`     | One module each for PRs, issues, reviews, comments and commits. Each yields raw records and owns its search-window splitting. |
+| `model.py`   | Row dataclasses. This is the schema contract.                                                                                 |
+| `store.py`   | CSV and manifest read/write, upsert by ID                                                                                     |
+| `filters.py` | Path exclusion, per-file cap, AI-marker detection, trailer parsing                                                            |
+| `metrics.py` | Tables to per-period metrics (pandas)                                                                                         |
+| `events.py`  | Event YAML loading and validation                                                                                             |
+| `report/`    | One function per chart (metrics DataFrame in, Plotly figure out), the HTML assembler, image export                            |
+| `config.py`  | `ledger.toml` loading with built-in defaults                                                                                  |
+| `cli.py`     | Typer commands                                                                                                                |
 
 Dependencies: httpx, typer, pandas, plotly, pyyaml. PNG/SVG export needs kaleido, which needs a local Chrome. It is an optional extra (`gh-ledger[images]`). Without it, `report` writes the HTML and prints a message saying images were skipped.
 
@@ -63,15 +63,15 @@ Dependencies: httpx, typer, pandas, plotly, pyyaml. PNG/SVG export needs kaleido
 
 Keys are GitHub node IDs (or commit SHAs) so incremental fetches upsert. Timestamps are UTC ISO 8601. List-valued columns (`co_authors`) are `;`-separated.
 
-| Table | One row per | Columns |
-|---|---|---|
-| `repos.csv` | repo touched | `repo` (owner/name), `is_private`, `is_fork` |
-| `prs.csv` | authored PR | `id`, `repo`, `number`, `url`, `title`, `state` (open/closed/merged), `created_at`, `merged_at`, `closed_at`, `additions`, `deletions`, `changed_files`, `files_truncated`, `text`, `co_authors` |
-| `issues.csv` | opened issue | `id`, `repo`, `number`, `url`, `title`, `state`, `created_at`, `closed_at`, `text` |
-| `reviews.csv` | submitted review | `id`, `repo`, `pr_number`, `pr_url`, `pr_author`, `state` (approved/changes_requested/commented/dismissed), `submitted_at`, `text` |
-| `comments.csv` | written comment | `id`, `repo`, `kind` (issue/pr_conversation/review_inline), `parent_number`, `parent_url`, `parent_author`, `created_at`, `text` |
-| `commits.csv` | direct default-branch commit not attached to any PR | `sha`, `repo`, `authored_at`, `additions`, `deletions`, `files_truncated`, `text`, `co_authors` |
-| `file_changes.csv` | file changed in a PR or direct commit | `source` (pr/commit), `source_id`, `repo`, `path`, `additions`, `deletions`, `change_type`, `date` |
+| Table              | One row per                                         | Columns                                                                                                                                                                                          |
+| ------------------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `repos.csv`        | repo touched                                        | `repo` (owner/name), `is_private`, `is_fork`                                                                                                                                                     |
+| `prs.csv`          | authored PR                                         | `id`, `repo`, `number`, `url`, `title`, `state` (open/closed/merged), `created_at`, `merged_at`, `closed_at`, `additions`, `deletions`, `changed_files`, `files_truncated`, `text`, `co_authors` |
+| `issues.csv`       | opened issue                                        | `id`, `repo`, `number`, `url`, `title`, `state`, `created_at`, `closed_at`, `text`                                                                                                               |
+| `reviews.csv`      | submitted review                                    | `id`, `repo`, `pr_number`, `pr_url`, `pr_author`, `state` (approved/changes_requested/commented/dismissed), `submitted_at`, `text`                                                               |
+| `comments.csv`     | written comment                                     | `id`, `repo`, `kind` (issue/pr_conversation/review_inline), `parent_number`, `parent_url`, `parent_author`, `created_at`, `text`                                                                 |
+| `commits.csv`      | direct default-branch commit not attached to any PR | `sha`, `repo`, `authored_at`, `additions`, `deletions`, `files_truncated`, `text`, `co_authors`                                                                                                  |
+| `file_changes.csv` | file changed in a PR or direct commit               | `source` (pr/commit), `source_id`, `repo`, `path`, `additions`, `deletions`, `change_type`, `date`                                                                                               |
 
 Rules:
 
@@ -83,13 +83,13 @@ Rules:
 
 ## Fetching
 
-| Table | Source |
-|---|---|
-| PRs | GraphQL search `is:pr author:U created:<window>` plus a second search `merged:<window>`, merged by ID. File lists (with additions/deletions per file) and commit messages are fetched in the same query and paged where needed. |
-| Issues | GraphQL search `is:issue author:U created:<window>` |
-| Reviews and inline comments | GraphQL `user.contributionsCollection(from, to)`, one call chain per year of range, reading `pullRequestReviewContributions` with each review's state, body and comments |
-| Conversation comments | GraphQL `user.issueComments`, ordered newest first, stopping once past `--since` |
-| Direct commits | REST commit search `author:U author-date:<window>` (and `author-email:E` for each `--author-email`). A batched GraphQL check (up to 50 commits per request) reads `associatedPullRequests` and drops attached commits. Remaining commits get one REST `GET /repos/{o}/{r}/commits/{sha}` call for file stats, paged past 300 files. |
+| Table                       | Source                                                                                                                                                                                                                                                                                                                              |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PRs                         | GraphQL search `is:pr author:U created:<window>` plus a second search `merged:<window>`, merged by ID. File lists (with additions/deletions per file) and commit messages are fetched in the same query and paged where needed.                                                                                                     |
+| Issues                      | GraphQL search `is:issue author:U created:<window>`                                                                                                                                                                                                                                                                                 |
+| Reviews and inline comments | GraphQL `user.contributionsCollection(from, to)`, one call chain per year of range, reading `pullRequestReviewContributions` with each review's state, body and comments                                                                                                                                                            |
+| Conversation comments       | GraphQL `user.issueComments`, ordered newest first, stopping once past `--since`                                                                                                                                                                                                                                                    |
+| Direct commits              | REST commit search `author:U author-date:<window>` (and `author-email:E` for each `--author-email`). A batched GraphQL check (up to 50 commits per request) reads `associatedPullRequests` and drops attached commits. Remaining commits get one REST `GET /repos/{o}/{r}/commits/{sha}` call for file stats, paged past 300 files. |
 
 Search windows start at one calendar month. A window whose `total_count` exceeds 1,000 is bisected until every piece is under the cap.
 
@@ -101,13 +101,13 @@ Visibility:
 
 Caching:
 
-| What | Re-fetched |
-|---|---|
-| Search windows ending more than 30 days before now | never |
-| Search windows within the last 30 days | every run |
-| Merged/closed PR details and commit file lists | never |
-| Open PR details | every run |
-| Everything | with `--refresh` |
+| What                                               | Re-fetched       |
+| -------------------------------------------------- | ---------------- |
+| Search windows ending more than 30 days before now | never            |
+| Search windows within the last 30 days             | every run        |
+| Merged/closed PR details and commit file lists     | never            |
+| Open PR details                                    | every run        |
+| Everything                                         | with `--refresh` |
 
 Responses are cached as they arrive, keyed by a hash of method, URL and body. An interrupted fetch resumes on the next run.
 
@@ -126,14 +126,14 @@ Known limitation: commit search only matches commits whose email is linked to th
 
 Computed per period (default month) by `summary`:
 
-| Group | Metrics |
-|---|---|
-| Output | `prs_opened`, `prs_merged`, `issues_opened`, `direct_commits` |
-| Review | `reviews_given`, `approvals`, `changes_requested`, `commented` (all on others' PRs), `comments`, `comments_on_others` |
-| Code | `lines_added`, `lines_deleted` (filtered), `lines_added_raw`, `lines_deleted_raw`, `lines_unfilterable` |
+| Group         | Metrics                                                                                                                   |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Output        | `prs_opened`, `prs_merged`, `issues_opened`, `direct_commits`                                                             |
+| Review        | `reviews_given`, `approvals`, `changes_requested`, `commented` (all on others' PRs), `comments`, `comments_on_others`     |
+| Code          | `lines_added`, `lines_deleted` (filtered), `lines_added_raw`, `lines_deleted_raw`, `lines_unfilterable`                   |
 | AI assistance | `ai_share_prs`, `ai_share_commits`, `ai_share_comments` (fraction of that period's items; empty when the period has none) |
-| Breadth | `repos_active` |
-| Per repo | `lines_changed` by `repo` (feeds the repos chart) |
+| Breadth       | `repos_active`                                                                                                            |
+| Per repo      | `lines_changed` by `repo` (feeds the repos chart)                                                                         |
 
 ## Filters
 
