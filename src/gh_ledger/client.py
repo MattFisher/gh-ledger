@@ -127,7 +127,9 @@ class GitHubClient:
             if hit is not None:
                 return hit
         result = self._send(method, path, params, body, search=search)
-        if cache is not None:
+        # A response with GraphQL errors (tolerated FORBIDDEN/NOT_FOUND) may be healed
+        # later, for instance by authorising the token, so it is never frozen in the cache.
+        if cache is not None and not (path == GRAPHQL_PATH and result.get("errors")):
             cache.put(key, result)
         return result
 

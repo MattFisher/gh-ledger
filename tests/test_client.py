@@ -162,6 +162,19 @@ def test_http_errors_carry_their_status():
     assert info.value.status == 422
 
 
+def test_graphql_responses_with_errors_are_not_cached(tmp_path):
+    body = {
+        "data": {"node": None},
+        "errors": [{"type": "FORBIDDEN", "message": "SAML enforcement"}],
+    }
+    transport, seen = scripted(httpx.Response(200, json=body), httpx.Response(200, json=body))
+    client, _ = make_client(transport, cache=ResponseCache(tmp_path))
+    assert client.graphql("query Q { x }") == {"node": None}
+    assert client.graphql("query Q { x }") == {"node": None}
+    assert len(seen) == 2
+    assert not any(tmp_path.rglob("*.json"))
+
+
 def test_plain_403_is_an_error_not_a_wait():
     transport, _ = scripted(httpx.Response(403, text="Resource not accessible"))
     client, sleeps = make_client(transport)
