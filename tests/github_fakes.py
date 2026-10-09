@@ -100,3 +100,26 @@ def pr_node(
         "files": connection(file_nodes, files_cursor),
         "commits": connection([{"commit": {"message": m}} for m in messages], commits_cursor),
     }
+
+
+def issue_node(
+    node_id="I_1",
+    *,
+    number=3,
+    state="OPEN",
+    created="2024-01-05T10:00:00Z",
+    closed=None,
+    body="It broke.",
+    repository=None,
+):
+    return {
+        "id": node_id,
+        "number": number,
+        "url": f"https://github.com/octo/app/issues/{number}",
+        "title": f"Issue {number}",
+        "state": state,
+        "body": body,
+        "createdAt": created,
+        "closedAt": closed,
+        "repository": repository or repo(),
+    }
