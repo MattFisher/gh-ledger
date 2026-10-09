@@ -1,0 +1,94 @@
+# Claude model releases, for use with: gh-ledger report --events examples/events/claude-models.yaml
+# Each date is the day Anthropic published the linked announcement.
+- date: 2023-03-14
+  label: Claude
+  group: Claude
+  url: https://www.anthropic.com/news/introducing-claude
+- date: 2023-07-11
+  label: Claude 2
+  group: Claude
+  url: https://www.anthropic.com/news/claude-2
+- date: 2023-11-21
+  label: Claude 2.1
+  group: Claude
+  url: https://www.anthropic.com/news/claude-2-1
+- date: 2024-03-04
+  label: Claude 3 family
+  group: Claude
+  url: https://www.anthropic.com/news/claude-3-family
+- date: 2024-06-21
+  label: Claude 3.5 Sonnet
+  group: Claude
+  url: https://www.anthropic.com/news/claude-3-5-sonnet
+- date: 2024-10-22
+  label: Claude 3.5 Sonnet (new) + 3.5 Haiku
+  group: Claude
+  url: https://www.anthropic.com/news/3-5-models-and-computer-use
+- date: 2025-02-24
+  label: Claude 3.7 Sonnet + Claude Code preview
+  group: Claude
+  url: https://www.anthropic.com/news/claude-3-7-sonnet
+- date: 2025-05-22
+  label: Claude 4 + Claude Code GA
+  group: Claude
+  url: https://www.anthropic.com/news/claude-4
+- date: 2025-08-05
+  label: Claude Opus 4.1
+  group: Claude
+  url: https://www.anthropic.com/news/claude-opus-4-1
+- date: 2025-09-29
+  label: Claude Sonnet 4.5
+  group: Claude
+  url: https://www.anthropic.com/news/claude-sonnet-4-5
+- date: 2025-10-15
+  label: Claude Haiku 4.5
+  group: Claude
+  url: https://www.anthropic.com/news/claude-haiku-4-5
+- date: 2025-11-24
+  label: Claude Opus 4.5
+  group: Claude
+  url: https://www.anthropic.com/news/claude-opus-4-5
+- date: 2026-02-05
+  label: Claude Opus 4.6
+  group: Claude
+  url: https://www.anthropic.com/news/claude-opus-4-6
+- date: 2026-02-17
+  label: Claude Sonnet 4.6
+  group: Claude
+  url: https://www.anthropic.com/news/claude-sonnet-4-6
+- date: 2026-04-16
+  label: Claude Opus 4.7
+  group: Claude
+  url: https://www.anthropic.com/news/claude-opus-4-7
+- date: 2026-05-28
+  label: Claude Opus 4.8
+  group: Claude
+  url: https://www.anthropic.com/news/claude-opus-4-8
+- date: 2026-06-09
+  label: Claude Fable 5 + Mythos 5
+  group: Claude
+  url: https://www.anthropic.com/news/claude-fable-5-mythos-5
+- date: 2026-06-30
+  label: Claude Sonnet 5
+  group: Claude
+  url: https://www.anthropic.com/news/claude-sonnet-5
+- date: 2026-07-24
+  label: Claude Opus 5
+  group: Claude
+  url: https://www.anthropic.com/news/claude-opus-5
+- date: 2026-09-01
+  label: Claude Fable 5.1 + Mythos 5.1
+  group: Claude
+  url: https://www.anthropic.com/claude-fable-and-mythos-5-1
+- date: 2026-09-22
+  label: Claude Opus 5.5
+  group: Claude
+  url: https://www.anthropic.com/claude-opus-5-5
+- date: 2026-09-28
+  label: Claude Sonnet 5.5
+  group: Claude
+  url: https://www.anthropic.com/claude-sonnet-5-5
+- date: 2026-10-07
+  label: Claude Haiku 5.5
+  group: Claude
+  url: https://www.anthropic.com/claude-haiku-5-5
