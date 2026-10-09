@@ -154,6 +154,14 @@ def test_404_raises_not_found():
         client.rest("/repos/octo/gone/commits/abc")
 
 
+def test_http_errors_carry_their_status():
+    transport, _ = scripted(httpx.Response(422, json={"message": "No commit found"}))
+    client, _ = make_client(transport)
+    with pytest.raises(GitHubError, match="422") as info:
+        client.rest("/repos/octo/app/commits/abc")
+    assert info.value.status == 422
+
+
 def test_plain_403_is_an_error_not_a_wait():
     transport, _ = scripted(httpx.Response(403, text="Resource not accessible"))
     client, sleeps = make_client(transport)

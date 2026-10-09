@@ -30,6 +30,10 @@ Waiter = Callable[[float, str], None]
 class GitHubError(Exception):
     """A request failed in a way that retrying will not fix."""
 
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
+
 
 class NotFoundError(GitHubError):
     """GitHub answered 404."""
@@ -182,9 +186,12 @@ class GitHubClient:
 
     def _decode(self, response: httpx.Response, path: str) -> Any:
         if response.status_code == 404:
-            raise NotFoundError(f"404 for {path}")
+            raise NotFoundError(f"404 for {path}", 404)
         if response.status_code >= 400:
-            raise GitHubError(f"HTTP {response.status_code} for {path}: {response.text[:300]}")
+            raise GitHubError(
+                f"HTTP {response.status_code} for {path}: {response.text[:300]}",
+                response.status_code,
+            )
         data = response.json()
         if path == GRAPHQL_PATH:
             errors = data.get("errors") or []  # pyright: ignore[reportUnknownVariableType]

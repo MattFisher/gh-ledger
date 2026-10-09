@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from datetime import date, datetime
 from typing import Any
 
-from gh_ledger.client import GitHubClient, NotFoundError
+from gh_ledger.client import GitHubClient, GitHubError
 from gh_ledger.fetch.common import Tick, to_utc_iso
 from gh_ledger.fetch.search import (
     SEARCH_CAP,
@@ -24,6 +24,8 @@ from gh_ledger.model import CommitRow, FetchResult, FileChangeRow, RepoRow
 SEARCH_PATH = "/search/commits"
 PER_PAGE = 100
 ASSOCIATION_BATCH = 50
+# A copy that lacks the commit: gone (404), empty repo (409) or SHA unknown there (422).
+STALE_COPY_STATUSES = frozenset({404, 409, 422})
 MAX_FILE_PAGES = 30  # GitHub lists at most 3,000 files for one commit
 ASSOCIATION = (
     'c{i}: repository(owner: {owner}, name: {name}) {{ object(oid: "{sha}") '
@@ -67,7 +69,9 @@ def fetch_commits(
                 continue
             try:
                 detail, files = _detail(client, full_name, item["sha"])
-            except NotFoundError:
+            except GitHubError as exc:
+                if exc.status not in STALE_COPY_STATUSES:
+                    raise
                 continue
             _add_commit(item, detail, files, result)
             break
@@ -132,7 +136,9 @@ def _associations(
                 unreachable.add((item["sha"], item["repository"]["full_name"]))
                 continue
             commit = repository.get("object")
-            if commit and commit["associatedPullRequests"]["totalCount"] > 0:
+            if not commit:  # no such commit in this repo (null, or not a commit)
+                unreachable.add((item["sha"], item["repository"]["full_name"]))
+            elif commit["associatedPullRequests"]["totalCount"] > 0:
                 attached.add(item["sha"])
     return attached, unreachable
 

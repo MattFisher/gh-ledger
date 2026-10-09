@@ -240,11 +240,12 @@ def commit_detail(sha, files, *, stats=None):
     }
 
 
-def associations(attached=(), missing_repos=(), attached_in=()):
+def associations(attached=(), missing_repos=(), attached_in=(), null_object_in=()):
     """Answer a CommitAssociations query.
 
     SHAs in `attached` belong to a PR in every repo; (repo, sha) pairs in `attached_in`
-    only in that repo. Every alias is recorded in `handle.aliases` as (repo, sha).
+    only in that repo; (repo, sha) pairs in `null_object_in` have no such commit there.
+    Every alias is recorded in `handle.aliases` as (repo, sha).
     """
 
     def handle(body):
@@ -256,6 +257,8 @@ def associations(attached=(), missing_repos=(), attached_in=()):
             handle.aliases.append((f"{owner}/{name}", sha))
             if f"{owner}/{name}" in missing_repos:
                 data[alias] = None
+            elif (f"{owner}/{name}", sha) in null_object_in:
+                data[alias] = {"object": None}
             else:
                 attach = sha in attached or (f"{owner}/{name}", sha) in attached_in
                 count = 1 if attach else 0

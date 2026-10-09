@@ -207,3 +207,45 @@ def test_sha_found_by_two_searches_counts_once():
     result = run(fake, author_emails=["me@old-job.example"])
     assert len(result.commits) == 1
     assert handler.aliases == [("octo/app", "aaa")]
+
+
+def two_copies(fake):
+    fake.rest["/search/commits"] = search(
+        commit_item("aaa", repo_name="octo/original", repo_id=10),
+        commit_item("aaa", repo_name="someone/copy", repo_id=99),
+    )
+    fake.rest["/repos/someone/copy/commits/aaa"] = lambda _r: commit_detail("aaa", [("x.py", 1, 0)])
+
+
+def test_sha_missing_from_the_oldest_copy_falls_back_to_next():
+    fake = FakeGitHub()
+    two_copies(fake)
+    fake.graphql["CommitAssociations"] = associations(null_object_in={("octo/original", "aaa")})
+    result = run(fake)
+    assert [c.repo for c in result.commits] == ["someone/copy"]
+    assert "/repos/octo/original/commits/aaa" not in fake.calls
+    assert result.skipped_repos == []
+
+
+def test_422_on_the_oldest_copy_falls_back_to_next():
+    fake = FakeGitHub()
+    two_copies(fake)
+    fake.graphql["CommitAssociations"] = associations()
+    fake.rest["/repos/octo/original/commits/aaa"] = lambda _r: httpx.Response(
+        422, json={"message": "No commit found for SHA: aaa"}
+    )
+    result = run(fake)
+    assert [c.repo for c in result.commits] == ["someone/copy"]
+    assert result.skipped_repos == []
+
+
+def test_attached_sha_is_dropped_even_if_another_copy_lacks_it():
+    fake = FakeGitHub()
+    two_copies(fake)
+    fake.graphql["CommitAssociations"] = associations(
+        attached_in={("someone/copy", "aaa")}, null_object_in={("octo/original", "aaa")}
+    )
+    result = run(fake)
+    assert result.commits == []
+    assert result.dropped_pr_commits == 1
+    assert not [c for c in fake.calls if c.startswith("/repos/")]
