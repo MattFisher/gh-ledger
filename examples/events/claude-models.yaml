@@ -76,6 +76,8 @@
   label: Claude Opus 5
   group: Claude
   url: https://www.anthropic.com/news/claude-opus-5
+# The announcement page shows only "September 2026"; the day comes from Anthropic's
+# API release notes.
 - date: 2026-09-01
   label: Claude Fable 5.1 + Mythos 5.1
   group: Claude
