@@ -62,17 +62,24 @@ def test_year_spans_are_contiguous_and_at_most_365_days():
         assert right.start - left.end == timedelta(seconds=1)
 
 
-def fake_search(stamps, page_size=2):
-    """A fetch_page over a list of timestamps, recording each call."""
+def fake_search(stamps, page_size=2, cap=None):
+    """A fetch_page over a list of timestamps, recording each call.
+
+    When cap is set, total reports the true count but only the first cap items
+    are reachable through paging (like GitHub's behavior).
+    """
     calls = []
 
     def fetch_page(window, cursor):
         calls.append((window, cursor))
         hits = [s for s in stamps if window.start <= s <= window.end]
+        true_count = len(hits)
+        # Only cap reachable items if we exceed the cap
+        reachable_hits = hits if cap is None or true_count <= cap else hits[:cap]
         offset = int(cursor or 0)
-        chunk = hits[offset : offset + page_size]
-        more = offset + page_size < len(hits)
-        return Page(total=len(hits), items=chunk, cursor=str(offset + page_size) if more else None)
+        chunk = reachable_hits[offset : offset + page_size]
+        more = offset + page_size < len(reachable_hits)
+        return Page(total=true_count, items=chunk, cursor=str(offset + page_size) if more else None)
 
     return fetch_page, calls
 
@@ -88,8 +95,32 @@ def test_search_windowed_pages_through_results():
 def test_search_windowed_bisects_windows_over_the_cap():
     # Twelve results inside one day, cap 3: bisection must go below a day.
     stamps = [utc(2024, 1, 10, h) for h in range(12)] + [utc(2024, 1, 25)]
-    fetch_page, _ = fake_search(stamps)
+    fetch_page, calls = fake_search(stamps, cap=3)
     windows = month_windows(date(2024, 1, 1), date(2024, 1, 31))
     found = list(search_windowed(windows, fetch_page, cap=3))
+
+    # Every item is found exactly once
     assert sorted(found) == sorted(stamps)
     assert len(found) == len(stamps)
+
+    # More than one distinct window was queried (proves bisection happened)
+    queried_windows = {call[0] for call in calls}
+    assert len(queried_windows) > 1
+
+    # For each initial fetch (cursor None) whose window's true count is ≤ cap,
+    # those windows together cover all found items
+    safe_windows = []
+    for window, cursor in calls:
+        if cursor is None:
+            # Check items in this window to determine its true count
+            window_items = [s for s in stamps if window.start <= s <= window.end]
+            window_total = len(window_items)
+            if window_total <= 3:  # cap=3
+                safe_windows.append(window)
+
+    # Items from safe windows should cover all found items
+    items_from_safe_windows = []
+    for window in safe_windows:
+        items_from_safe_windows.extend([s for s in stamps if window.start <= s <= window.end])
+
+    assert sorted(items_from_safe_windows) == sorted(found)
