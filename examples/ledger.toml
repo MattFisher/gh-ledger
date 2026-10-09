@@ -1,0 +1,21 @@
+# Example gh-ledger configuration. Every key is optional.
+
+[filters]
+extra_exclude = ["fixtures/**"]      # appended to the defaults; `exclude = [...]` replaces them
+per_file_cap = 1000                  # false disables the cap
+count_unmerged_pr_lines = false
+
+[ai]
+patterns = [
+  '(?i)co-authored-by:.*\b(claude|copilot|cursor|codex|gemini|devin)\b',
+  '(?i)generated with \[?claude code',
+  '(?i)posted by \[?claude code',
+]
+
+[report]
+period = "month"
+title = "GitHub activity"
+top_repos = 8
+compare_at = "2025-02-24"
+charts = ["activity", "lines", "review_mix", "ai_share", "repos", "compare"]
+image_size = [1200, 600]

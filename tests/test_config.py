@@ -97,3 +97,11 @@ def test_invalid_config_names_the_problem(tmp_path, text, message):
 def test_missing_file(tmp_path):
     with pytest.raises(ConfigError, match="not found"):
         load_config(tmp_path / "nope.toml")
+
+
+def test_example_config_loads():
+    from pathlib import Path
+
+    config = load_config(Path(__file__).parent.parent / "examples" / "ledger.toml")
+    assert config.report.compare_at == date(2025, 2, 24)
+    assert config.filters.exclude[-1] == "fixtures/**"
