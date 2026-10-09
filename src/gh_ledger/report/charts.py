@@ -293,16 +293,23 @@ def add_events(
         if labels:
             fig.add_annotation(
                 x=x,
-                y=1,
+                y=1.06,
                 xref="x",
                 yref="paper",
                 text=event.label,
                 textangle=-90,
                 xanchor="right",
-                yanchor="top",
+                yanchor="bottom",
                 showarrow=False,
                 font={"size": 10, "color": TEXT_MUTED},
             )
+    if labels and shown:
+        # Rotated labels stand above the first panel, clear of its title; make room for them
+        # and keep the legend in the top corner instead of on top of them.
+        fig.update_layout(
+            margin={"t": 240},
+            legend={"yref": "container", "y": 1, "yanchor": "top"},
+        )
     for group in groups:
         members = [event for event in shown if event.group == group]
         fig.add_trace(
