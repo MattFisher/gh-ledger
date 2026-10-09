@@ -170,3 +170,35 @@ def contributions(nodes, *, restricted=0, end_cursor=None):
             }
         }
     }
+
+
+def issue_comment(
+    comment_id="IC_1",
+    *,
+    created="2024-01-15T10:00:00Z",
+    updated=None,
+    on_pr=False,
+    number=3,
+    parent_author="alice",
+    body="Thanks!",
+    repository=None,
+):
+    kind = "pull" if on_pr else "issues"
+    parent = {
+        "number": number,
+        "url": f"https://github.com/octo/app/{kind}/{number}",
+        "author": {"login": parent_author} if parent_author else None,
+    }
+    return {
+        "id": comment_id,
+        "body": body,
+        "createdAt": created,
+        "updatedAt": updated or created,
+        "issue": parent,
+        "pullRequest": parent if on_pr else None,
+        "repository": repository or repo(),
+    }
+
+
+def issue_comments(nodes, end_cursor=None):
+    return {"user": {"issueComments": connection(nodes, end_cursor)}}
