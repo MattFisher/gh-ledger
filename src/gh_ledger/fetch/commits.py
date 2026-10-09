@@ -45,27 +45,40 @@ def fetch_commits(
     visibility = " is:public" if public_only else ""
     authors = [f"author:{user}", *(f"author-email:{email}" for email in author_emails)]
     windows = month_windows(since, until)
-    candidates: dict[str, dict[str, Any]] = {}
+    copies: dict[str, dict[str, dict[str, Any]]] = {}
     for author in authors:
         for item in search_windowed(windows, _search_pages(client, author + visibility, now)):
-            candidates.setdefault(item["sha"], item)
+            copies.setdefault(item["sha"], {}).setdefault(item["repository"]["full_name"], item)
             tick(1)
-    items = sorted(candidates.values(), key=_authored)
-    attached, missing = _associations(client, items, now)
-    result = FetchResult(dropped_pr_commits=len(attached))
-    skipped = set(missing)
-    for item in items:
-        full_name = item["repository"]["full_name"]
-        if item["sha"] in attached or full_name in skipped:
-            continue
-        try:
-            detail, files = _detail(client, full_name, item["sha"])
-        except NotFoundError:
-            skipped.add(full_name)
-            continue
-        _add_commit(item, detail, files, result)
+    merges = {sha for sha, by_repo in copies.items() if _is_merge(by_repo)}
+    remaining = {sha: by_repo for sha, by_repo in copies.items() if sha not in merges}
+    pairs = [item for by_repo in remaining.values() for item in by_repo.values()]
+    pairs.sort(key=lambda item: (_authored(item), item["sha"], item["repository"]["full_name"]))
+    attached, unreachable = _associations(client, pairs, now)
+    result = FetchResult(dropped_pr_commits=len(merges) + len(attached))
+    skipped: set[str] = set()
+    kept = [by_repo for sha, by_repo in remaining.items() if sha not in attached]
+    kept.sort(key=lambda by_repo: _authored(next(iter(by_repo.values()))))
+    for by_repo in kept:
+        ordered = sorted(by_repo.values(), key=lambda item: int(item["repository"]["id"]))
+        for item in ordered:
+            full_name = item["repository"]["full_name"]
+            if (item["sha"], full_name) in unreachable:
+                continue
+            try:
+                detail, files = _detail(client, full_name, item["sha"])
+            except NotFoundError:
+                continue
+            _add_commit(item, detail, files, result)
+            break
+        else:
+            skipped.add(ordered[0]["repository"]["full_name"])
     result.skipped_repos = sorted(skipped)
     return result
+
+
+def _is_merge(by_repo: dict[str, dict[str, Any]]) -> bool:
+    return any(len(item["parents"]) > 1 for item in by_repo.values())
 
 
 def _authored(item: dict[str, Any]) -> datetime:
@@ -96,10 +109,10 @@ def _search_pages(client: GitHubClient, terms: str, now: datetime) -> PageFetche
 
 def _associations(
     client: GitHubClient, items: list[dict[str, Any]], now: datetime
-) -> tuple[set[str], set[str]]:
-    """SHAs attached to a PR, and repos the association query could not see."""
+) -> tuple[set[str], set[tuple[str, str]]]:
+    """SHAs attached to a PR in any copy, and (sha, repo) pairs the query could not see."""
     attached: set[str] = set()
-    missing: set[str] = set()
+    unreachable: set[tuple[str, str]] = set()
     for start in range(0, len(items), ASSOCIATION_BATCH):
         batch = items[start : start + ASSOCIATION_BATCH]
         parts: list[str] = []
@@ -116,12 +129,12 @@ def _associations(
         for i, item in enumerate(batch):
             repository = data.get(f"c{i}")
             if repository is None:
-                missing.add(item["repository"]["full_name"])
+                unreachable.add((item["sha"], item["repository"]["full_name"]))
                 continue
             commit = repository.get("object")
             if commit and commit["associatedPullRequests"]["totalCount"] > 0:
                 attached.add(item["sha"])
-    return attached, missing
+    return attached, unreachable
 
 
 def _detail(

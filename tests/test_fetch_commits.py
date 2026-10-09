@@ -140,3 +140,70 @@ def test_public_only_adds_is_public():
     )
     run(fake, public_only=True)
     assert all("is:public" in q for q in queries)
+
+
+def test_merge_commits_are_never_direct_commits():
+    fake = FakeGitHub()
+    fake.rest["/search/commits"] = search(commit_item("mmm", parents=2))
+    handler = associations()
+    fake.graphql["CommitAssociations"] = handler
+    result = run(fake)
+    assert result.commits == []
+    assert result.dropped_pr_commits == 1
+    assert "/repos/octo/app/commits/mmm" not in fake.calls
+    assert all(sha != "mmm" for _repo, sha in handler.aliases)
+
+
+def test_commit_attached_to_a_pr_in_any_copy_is_dropped():
+    fake = FakeGitHub()
+    fake.rest["/search/commits"] = search(
+        commit_item("aaa", repo_name="someone/copy", repo_id=99),
+        commit_item("aaa", repo_name="octo/original", repo_id=10),
+    )
+    fake.graphql["CommitAssociations"] = associations(attached_in={("octo/original", "aaa")})
+    result = run(fake)
+    assert result.commits == []
+    assert result.dropped_pr_commits == 1
+    assert not [c for c in fake.calls if c.startswith("/repos/")]
+
+
+def test_kept_commit_is_credited_to_the_oldest_copy():
+    fake = FakeGitHub()
+    fake.rest["/search/commits"] = search(
+        commit_item("aaa", repo_name="someone/copy", repo_id=99),
+        commit_item("aaa", repo_name="octo/original", repo_id=10),
+    )
+    fake.graphql["CommitAssociations"] = associations()
+    fake.rest["/repos/octo/original/commits/aaa"] = lambda _r: commit_detail(
+        "aaa", [("x.py", 1, 0)]
+    )
+    result = run(fake)
+    [commit] = result.commits
+    assert commit.repo == "octo/original"
+    assert [f.repo for f in result.file_changes] == ["octo/original"]
+    assert [r.repo for r in result.repos] == ["octo/original"]
+    assert "/repos/someone/copy/commits/aaa" not in fake.calls
+
+
+def test_unreachable_oldest_copy_falls_back_to_next():
+    fake = FakeGitHub()
+    fake.rest["/search/commits"] = search(
+        commit_item("aaa", repo_name="octo/original", repo_id=10),
+        commit_item("aaa", repo_name="someone/copy", repo_id=99),
+    )
+    fake.graphql["CommitAssociations"] = associations(missing_repos={"octo/original"})
+    fake.rest["/repos/someone/copy/commits/aaa"] = lambda _r: commit_detail("aaa", [("x.py", 1, 0)])
+    result = run(fake)
+    assert [c.repo for c in result.commits] == ["someone/copy"]
+    assert result.skipped_repos == []
+
+
+def test_sha_found_by_two_searches_counts_once():
+    fake = FakeGitHub()
+    fake.rest["/search/commits"] = search(commit_item("aaa"))
+    handler = associations()
+    fake.graphql["CommitAssociations"] = handler
+    fake.rest["/repos/octo/app/commits/aaa"] = lambda _r: commit_detail("aaa", [("x.py", 1, 0)])
+    result = run(fake, author_emails=["me@old-job.example"])
+    assert len(result.commits) == 1
+    assert handler.aliases == [("octo/app", "aaa")]

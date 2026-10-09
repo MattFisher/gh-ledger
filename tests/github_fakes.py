@@ -214,11 +214,14 @@ def commit_item(
     repo_name="octo/app",
     private=False,
     message="fix: thing",
+    repo_id=1000,
+    parents=1,
 ):
     return {
         "sha": sha,
         "commit": {"author": {"date": date}, "message": message},
-        "repository": {"full_name": repo_name, "private": private, "fork": False},
+        "parents": [{"sha": f"p{n}"} for n in range(parents)],
+        "repository": {"id": repo_id, "full_name": repo_name, "private": private, "fork": False},
     }
 
 
@@ -237,8 +240,12 @@ def commit_detail(sha, files, *, stats=None):
     }
 
 
-def associations(attached=(), missing_repos=()):
-    """Answer a CommitAssociations query: SHAs in `attached` belong to a PR."""
+def associations(attached=(), missing_repos=(), attached_in=()):
+    """Answer a CommitAssociations query.
+
+    SHAs in `attached` belong to a PR in every repo; (repo, sha) pairs in `attached_in`
+    only in that repo. Every alias is recorded in `handle.aliases` as (repo, sha).
+    """
 
     def handle(body):
         data = {}
@@ -246,13 +253,16 @@ def associations(attached=(), missing_repos=()):
             r'(c\d+): repository\(owner: "([^"]+)", name: "([^"]+)"\) \{ object\(oid: "(\w+)"\)'
         )
         for alias, owner, name, sha in re.findall(pattern, body["query"]):
+            handle.aliases.append((f"{owner}/{name}", sha))
             if f"{owner}/{name}" in missing_repos:
                 data[alias] = None
             else:
-                count = 1 if sha in attached else 0
+                attach = sha in attached or (f"{owner}/{name}", sha) in attached_in
+                count = 1 if attach else 0
                 data[alias] = {"object": {"associatedPullRequests": {"totalCount": count}}}
         return data
 
+    handle.aliases = []
     return handle
 
 
