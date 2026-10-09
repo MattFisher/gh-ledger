@@ -251,3 +251,15 @@ def associations(attached=(), missing_repos=()):
         return data
 
     return handle
+
+
+def empty_github():
+    """A FakeGitHub answering every fetch query with no results."""
+    fake = FakeGitHub()
+    fake.graphql["UserCheck"] = lambda b: {"user": {"login": b["variables"]["login"].lower()}}
+    fake.graphql["PrSearch"] = lambda _b: search_result([])
+    fake.graphql["IssueSearch"] = lambda _b: search_result([])
+    fake.graphql["ReviewContributions"] = lambda _b: contributions([])
+    fake.graphql["IssueComments"] = lambda _b: issue_comments([])
+    fake.rest["/search/commits"] = lambda _r: {"total_count": 0, "items": []}
+    return fake

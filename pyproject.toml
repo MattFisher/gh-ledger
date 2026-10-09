@@ -27,6 +27,9 @@ Homepage = "https://github.com/MattFisher/gh-ledger"
 Repository = "https://github.com/MattFisher/gh-ledger"
 Issues = "https://github.com/MattFisher/gh-ledger/issues"
 
+[project.scripts]
+gh-ledger = "gh_ledger.cli:app"
+
 [project.optional-dependencies]
 images = [
     "kaleido>=1.5.0",
