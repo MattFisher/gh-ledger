@@ -142,11 +142,14 @@ def fetch(
             make_client(data, refresh=refresh, on_wait=_waiter(progress)) as client,
         ):
             manifest = run_fetch(client, options, data, now=now, stage=_stage_runner(progress))
-    except (AuthError, FetchError, GitHubError) as exc:
+    except (AuthError, FetchError, GitHubError, StoreError) as exc:
         fail(exc)
     err_console.print(f"Fetched {manifest.user} {manifest.since} to {manifest.until} into {data}")
     if manifest.dropped_pr_commits:
-        err_console.print(f"Dropped {manifest.dropped_pr_commits} commits already counted via PRs.")
+        err_console.print(
+            f"Dropped {manifest.dropped_pr_commits} commits that belong to a PR "
+            "(attached to one, or merge commits)."
+        )
     if manifest.skipped_repos:
         err_console.print(
             f"[yellow]Skipped repos (not found):[/] {escape(', '.join(manifest.skipped_repos))}"

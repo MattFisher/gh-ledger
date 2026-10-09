@@ -53,3 +53,15 @@ def test_auth_failure_is_a_clean_error(tmp_path, monkeypatch):
     assert result.exit_code == 1
     assert "GITHUB_TOKEN" in result.output
     assert "Traceback" not in result.output
+
+
+def test_corrupt_table_is_a_clean_error(tmp_path, monkeypatch):
+    fake = empty_github()
+    monkeypatch.setattr(cli, "make_client", lambda data, *, refresh, on_wait: fake.client())
+    (tmp_path / "prs.csv").write_text("not,the,right,header\n1,2,3,4\n")
+    args = ["fetch", "--user", "octocat", "--since", "2024-01-01", "--until", "2024-01-31"]
+    result = CliRunner().invoke(cli.app, [*args, "--data", str(tmp_path)])
+    assert result.exit_code == 1
+    assert "prs.csv" in result.output
+    assert "Traceback" not in result.output
+    assert isinstance(result.exception, SystemExit)
