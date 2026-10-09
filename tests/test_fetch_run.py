@@ -107,3 +107,19 @@ def test_manifest_counts_describe_the_latest_run(tmp_path):
     fake.graphql["ReviewContributions"] = lambda _b: contributions([], restricted=1)
     run_fetch(fake.client(), options(), tmp_path, now=NOW, stage=stage)
     assert read_manifest(tmp_path).restricted_contributions == 1
+
+
+def test_interrupted_run_leaves_a_manifest_that_guards_the_visibility(tmp_path):
+    fake = empty_github()
+
+    def boom(_body):
+        raise RuntimeError("network died")
+
+    fake.graphql["IssueSearch"] = boom
+    with pytest.raises(RuntimeError):
+        run_fetch(fake.client(), options(visibility="all"), tmp_path, now=NOW, stage=stage)
+    assert read_manifest(tmp_path).visibility == "all"
+    with pytest.raises(FetchError, match="--visibility all"):
+        run_fetch(
+            empty_github().client(), options(visibility="public"), tmp_path, now=NOW, stage=stage
+        )

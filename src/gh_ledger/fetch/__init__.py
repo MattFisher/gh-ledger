@@ -46,6 +46,9 @@ def run_fetch(
     user = _canonical_login(client, options.user)
     public_only = options.visibility == "public"
     since, until = options.since, options.until
+    if existing is None:
+        # Guards user and visibility if this run is interrupted after caching responses.
+        write_manifest(data_dir, _merge_manifest(None, options, user, FetchResult(), now))
     result = FetchResult()
     with stage("Pull requests") as tick:
         result.extend(
